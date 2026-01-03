@@ -216,7 +216,7 @@ Expected response:
   "database": "connected"
 }
 
-Conclusion
+Conclusion:
 
 This project demonstrates a real-world, production-ready multi-tenant SaaS platform, implementing best practices in backend security, database design, frontend architecture, and DevOps automation.
 
