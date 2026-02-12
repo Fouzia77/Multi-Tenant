@@ -11,24 +11,6 @@ export default function ProjectDetails() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', status: 'todo' });
 
-  const fetchProjectData = async () => {
-    try {
-      const projectRes = await api.get(`/projects/${id}`);
-      setProject(projectRes.data.data);
-      
-      // Assuming the backend returns tasks inside the project object or we fetch them separately
-      // Adjust this based on your actual API response structure. 
-      // If tasks are nested: setTasks(projectRes.data.data.Tasks || []);
-      // If separate endpoint:
-      const tasksRes = await api.get(`/tasks?projectId=${id}`); 
-      setTasks(tasksRes.data.data);
-      
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to load project details');
-    }
-  };
-
   useEffect(() => {
   const fetchProjectData = async () => {
     try {
@@ -36,7 +18,9 @@ export default function ProjectDetails() {
       setProject(projectRes.data.data);
 
       const tasksRes = await api.get(`/projects/${id}/tasks`);
-      setTasks(tasksRes.data.data);
+      const taskPayload = tasksRes.data.data;
+      const taskList = Array.isArray(taskPayload) ? taskPayload : (taskPayload?.tasks || []);
+      setTasks(taskList);
     } catch (error) {
       console.error(error);
       toast.error('Failed to load project details');
@@ -50,7 +34,11 @@ export default function ProjectDetails() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/tasks', { ...newTask, projectId: id });
+      await api.post(`/projects/${id}/tasks`, {
+        title: newTask.title,
+        description: '',
+        priority: newTask.status === 'done' ? 'high' : 'medium',
+      });
       toast.success('Task added');
       setNewTask({ title: '', status: 'todo' });
       setShowTaskForm(false);
@@ -63,7 +51,8 @@ export default function ProjectDetails() {
 
   const handleUpdateStatus = async (taskId, newStatus) => {
     try {
-      await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      const mappedStatus = newStatus === 'done' ? 'completed' : newStatus;
+      await api.patch(`/tasks/${taskId}/status`, { status: mappedStatus });
       toast.success('Task updated');
       fetchProjectData();
     } catch (error) {
@@ -112,7 +101,7 @@ export default function ProjectDetails() {
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
-            {tasks.filter(t => t.status === 'done').length} / {tasks.length} Tasks Completed
+            {tasks.filter(t => t.status === 'completed').length} / {tasks.length} Tasks Completed
           </div>
         </div>
       </div>
@@ -162,13 +151,13 @@ export default function ProjectDetails() {
             <div key={task.id} className="group bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-all flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className={`p-2 rounded-full ${
-                  task.status === 'done' ? 'bg-green-100 text-green-600' : 
+                  task.status === 'completed' ? 'bg-green-100 text-green-600' : 
                   task.status === 'in_progress' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'
                 }`}>
-                  {task.status === 'done' ? <CheckCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                  {task.status === 'completed' ? <CheckCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
                 </div>
                 <div>
-                  <p className={`font-medium ${task.status === 'done' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                  <p className={`font-medium ${task.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                     {task.title}
                   </p>
                 </div>
@@ -177,7 +166,7 @@ export default function ProjectDetails() {
               <div className="flex items-center gap-4">
                 <select 
                   className="text-sm border-none bg-transparent font-medium text-gray-500 focus:ring-0 cursor-pointer hover:text-indigo-600"
-                  value={task.status}
+                  value={task.status === 'completed' ? 'done' : task.status}
                   onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
                 >
                   <option value="todo">To Do</option>

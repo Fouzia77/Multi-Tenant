@@ -1,4 +1,4 @@
-const { Tenant, AuditLog } = require('../models');
+const { Tenant, User, Project, Task, AuditLog } = require('../models');
 
 exports.getTenant = async (req, res) => {
   try {
@@ -9,7 +9,30 @@ exports.getTenant = async (req, res) => {
     const tenant = await Tenant.findByPk(req.params.id);
     if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found' });
 
-    res.json({ success: true, data: tenant });
+    const [totalUsers, totalProjects, totalTasks] = await Promise.all([
+      User.count({ where: { tenantId: tenant.id } }),
+      Project.count({ where: { tenantId: tenant.id } }),
+      Task.count({ where: { tenantId: tenant.id } }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: tenant.id,
+        name: tenant.name,
+        subdomain: tenant.subdomain,
+        status: tenant.status,
+        subscriptionPlan: tenant.subscriptionPlan,
+        maxUsers: tenant.maxUsers,
+        maxProjects: tenant.maxProjects,
+        createdAt: tenant.createdAt,
+        stats: {
+          totalUsers,
+          totalProjects,
+          totalTasks,
+        },
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -37,17 +60,37 @@ exports.listTenants = async (req, res) => {
         order: [['createdAt', 'DESC']]
     });
 
-    res.json({ 
-        success: true, 
-        data: {
-            tenants: rows,
-            pagination: {
-                total: count,
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(count / limit),
-                limit: parseInt(limit)
-            }
-        } 
+    // attach basic stats per tenant
+    const tenantsWithStats = await Promise.all(
+      rows.map(async (t) => {
+        const [totalUsers, totalProjects] = await Promise.all([
+          User.count({ where: { tenantId: t.id } }),
+          Project.count({ where: { tenantId: t.id } }),
+        ]);
+        return {
+          id: t.id,
+          name: t.name,
+          subdomain: t.subdomain,
+          status: t.status,
+          subscriptionPlan: t.subscriptionPlan,
+          totalUsers,
+          totalProjects,
+          createdAt: t.createdAt,
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tenants: tenantsWithStats,
+        pagination: {
+          totalTenants: count,
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(count / limit),
+          limit: parseInt(limit),
+        },
+      },
     });
     // ------------------------------------------------
   } catch (error) {

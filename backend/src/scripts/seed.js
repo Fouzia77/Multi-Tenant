@@ -85,11 +85,11 @@ const seed = async () => {
     if (projectAlpha) {
         await Task.findOrCreate({
             where: { title: 'Design Homepage', projectId: projectAlpha.id },
-            defaults: { status: 'done', tenantId: tenant.id }
+            defaults: { status: 'completed', priority: 'high', tenantId: tenant.id }
         });
         await Task.findOrCreate({
             where: { title: 'Implement Auth', projectId: projectAlpha.id },
-            defaults: { status: 'in_progress', tenantId: tenant.id }
+            defaults: { status: 'in_progress', priority: 'medium', tenantId: tenant.id }
         });
     }
 
@@ -97,7 +97,7 @@ const seed = async () => {
     if (projectBeta) {
         await Task.findOrCreate({
             where: { title: 'Initial Planning', projectId: projectBeta.id },
-            defaults: { status: 'todo', tenantId: tenant.id }
+            defaults: { status: 'todo', priority: 'low', tenantId: tenant.id }
         });
     }
 

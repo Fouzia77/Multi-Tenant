@@ -25,8 +25,14 @@ export default function Users() {
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get('/users');
-      setUsers(res.data.data);
+      if (!currentUser?.tenantId) {
+        setUsers([]);
+        return;
+      }
+      const res = await api.get(`/tenants/${currentUser.tenantId}/users`);
+      const payload = res.data.data;
+      const list = Array.isArray(payload) ? payload : (payload?.users || []);
+      setUsers(list);
     } catch (error) {
       console.error(error);
       toast.error('Failed to load team members');
@@ -40,7 +46,7 @@ export default function Users() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/users', formData);
+      await api.post(`/tenants/${currentUser.tenantId}/users`, formData);
       toast.success('Team member added successfully');
       setShowModal(false);
       setFormData({ fullName: '', email: '', password: '', role: 'user' });

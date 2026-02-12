@@ -9,7 +9,6 @@ const User = sequelize.define('User', {
   },
 
   fullName: {
-    field: 'full_name',
     type: DataTypes.STRING,
     allowNull: false
   },
@@ -20,7 +19,6 @@ const User = sequelize.define('User', {
   },
 
   password: {
-    field: 'password_hash',
     type: DataTypes.STRING,
     allowNull: false
   },
@@ -30,21 +28,15 @@ const User = sequelize.define('User', {
     defaultValue: 'user'
   },
 
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+
   tenantId: {
-    field: 'tenant_id',
     type: DataTypes.UUID,
     allowNull: true
   },
-
-  createdAt: {
-    field: 'created_at',
-    type: DataTypes.DATE
-  },
-
-  updatedAt: {
-    field: 'updated_at',
-    type: DataTypes.DATE
-  }
 
 }, {
   tableName: 'users',
@@ -52,7 +44,7 @@ const User = sequelize.define('User', {
   indexes: [
     {
       unique: true,
-      fields: ['email', 'tenant_id']
+      fields: ['email', 'tenantId']
     }
   ]
 });

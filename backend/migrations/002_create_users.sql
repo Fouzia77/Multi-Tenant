@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     "password" VARCHAR(255) NOT NULL,
     "role" "enum_users_role" DEFAULT 'user',
     "tenantId" UUID REFERENCES "tenants" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    "isActive" BOOLEAN DEFAULT TRUE,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

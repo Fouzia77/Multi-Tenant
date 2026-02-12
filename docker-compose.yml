@@ -1,5 +1,7 @@
 
 
+version: '3.8'
+
 services:
   # Service 1: Database (MANDATORY NAME: database)
   database:
@@ -34,13 +36,16 @@ services:
       DB_USER: postgres
       DB_PASSWORD: fouzia
       JWT_SECRET: supersecretkey_change_this_for_production_min_32_chars
+      JWT_EXPIRES_IN: 24h
       FRONTEND_URL: http://frontend:3000
     depends_on:
       database:
         condition: service_healthy
-    volumes:
-      - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Service 3: Frontend (MANDATORY NAME: frontend)
   frontend:
@@ -49,8 +54,7 @@ services:
     ports:
       - "3000:3000" # External:Internal
     environment:
-      VITE_API_URL: http://localhost:5000/api
-      REACT_APP_API_URL: http://localhost:5000/api
+      VITE_API_URL: http://backend:5000/api
     depends_on:
       - backend
     volumes:

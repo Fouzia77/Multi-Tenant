@@ -2,10 +2,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User, Tenant, sequelize, AuditLog } = require('../models');
 
-// Helper to generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
-    expiresIn: '30d',
+// Helper to generate JWT with required payload & 24h expiry
+const generateToken = (user) => {
+  const payload = {
+    userId: user.id,
+    tenantId: user.tenantId || null,
+    role: user.role,
+  };
+  return jwt.sign(payload, process.env.JWT_SECRET || 'secret', {
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   });
 };
 
@@ -53,7 +58,16 @@ exports.registerTenant = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Tenant registered successfully',
-      data: { tenant, admin }
+      data: {
+        tenantId: tenant.id,
+        subdomain: tenant.subdomain,
+        adminUser: {
+          id: admin.id,
+          email: admin.email,
+          fullName: admin.fullName,
+          role: admin.role,
+        },
+      },
     });
   } catch (error) {
     if (transaction) await transaction.rollback();
@@ -89,13 +103,14 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       success: true,
+      message: 'User registered successfully',
       data: {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
         role: user.role,
-        token: generateToken(user.id)
-      }
+        tenantId: user.tenantId,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -112,7 +127,7 @@ exports.login = async (req, res) => {
     }
 
     // 1. Find User by Email (Global Lookup first to check role)
-    const user = await User.findOne({ 
+    const user = await User.findOne({
       where: { email },
       attributes: ['id', 'fullName', 'email', 'password', 'role', 'tenantId'],
       include: [{ model: Tenant, as: 'tenant' }] 
@@ -170,16 +185,23 @@ exports.login = async (req, res) => {
       ipAddress: req.ip
     });
 
-    res.json({
+    const token = generateToken(user);
+
+    res.status(200).json({
       success: true,
+      message: 'Login successful',
       data: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        tenant: user.tenant,
-        token: generateToken(user.id)
-      }
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          tenantId: user.tenantId,
+        },
+        tenant: user.tenant || null,
+        token,
+        expiresIn: 24 * 60 * 60, // 24 hours in seconds
+      },
     });
 
   } catch (error) {
@@ -200,7 +222,7 @@ exports.logout = async (req, res) => {
         ipAddress: req.ip
       });
     }
-    res.json({ success: true, message: 'Logged out successfully' });
+    res.status(200).json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -209,10 +231,31 @@ exports.logout = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] },
-      include: [{ model: Tenant, as: 'tenant' }]
+      attributes: ['id', 'email', 'fullName', 'role', 'tenantId'],
+      include: [
+        {
+          model: Tenant,
+          as: 'tenant',
+          attributes: ['id', 'name', 'subdomain', 'subscriptionPlan', 'maxUsers', 'maxProjects'],
+        },
+      ],
     });
-    res.json({ success: true, data: user });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        isActive: true,
+        tenant: user.tenant,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

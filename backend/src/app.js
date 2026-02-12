@@ -16,44 +16,55 @@ const tenantRoutes = require('./routes/tenantRoutes');
 
 const app = express();
 
-// Middleware
+// Security & logging middleware
 app.use(helmet());
-app.use(cors());
+
+// CORS: allow only configured frontend (Docker uses http://frontend:3000)
+const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+app.use(
+  cors({
+    origin: allowedOrigin,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Health Check
-app.get('/health', async (req, res) => {
+// Health Check (required: /api/health)
+app.get('/api/health', async (req, res) => {
   try {
-    // Attempt to connect to the database
     await sequelize.authenticate();
-    // Only return 200 if DB connection succeeds
-    res.status(200).json({ status: 'ok', database: 'connected' });
+    return res.status(200).json({
+      status: 'ok',
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     console.error('Health Check Failed:', error);
-    // Return 503 Service Unavailable if DB is down
-    res.status(503).json({ 
-      status: 'error', 
-      database: 'disconnected', 
-      error: error.message 
+    return res.status(503).json({
+      status: 'error',
+      database: 'disconnected',
+      message: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 });
 
-
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/tenants', tenantRoutes);
 
-
+// Global error handler with consistent shape
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({
+  res.status(err.statusCode || 500).json({
     success: false,
-    message: 'Internal Server Error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: err.message || 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 });
 

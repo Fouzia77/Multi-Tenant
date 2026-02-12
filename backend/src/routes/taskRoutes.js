@@ -6,10 +6,9 @@ const { protect } = require('../middleware/authMiddleware');
 // All routes here are protected
 router.use(protect);
 
-router.post('/', taskController.createTask);
-router.get('/', taskController.getTasks);
-router.patch('/:id', taskController.updateTaskStatus);
-router.put('/:id', taskController.updateTask);
-router.delete('/:id', taskController.deleteTask);
+// Task status & update endpoints (task-level)
+router.patch('/:taskId/status', taskController.updateTaskStatus);
+router.put('/:taskId', taskController.updateTask);
+router.delete('/:taskId', taskController.deleteTask);
 
 module.exports = router;
